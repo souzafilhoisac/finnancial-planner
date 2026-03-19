@@ -141,6 +141,7 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
   color:var(--muted);border:1px solid var(--border);border-radius:10px;
   font-size:13px;cursor:pointer;touch-action:manipulation}
 .empty{color:var(--muted);font-size:12px;padding:8px 2px}
+#sc-welcome.on{display:block}
 </style>
 </head>
 <body>
@@ -185,12 +186,44 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
   <div class="sl">Fim do Mês</div>
   <div id="tfme"></div>
   <button class="abtn" id="batpl" style="margin-top:10px">+ Nova conta recorrente</button>
+  <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">
+    <div class="sl" style="margin-bottom:10px">Dados</div>
+    <button onclick="exportData()" style="width:100%;padding:12px;background:transparent;
+      border:1px solid var(--border);border-radius:9px;color:var(--muted);font-size:13px;
+      cursor:pointer;touch-action:manipulation;margin-bottom:8px">
+      💾 Exportar backup (.json)
+    </button>
+    <label style="display:block;width:100%;padding:12px;background:transparent;
+      border:1px dashed var(--dim);border-radius:9px;color:var(--muted);font-size:13px;
+      cursor:pointer;text-align:center">
+      📂 Importar backup (.json)
+      <input type="file" accept=".json" id="fimport2" style="display:none" onchange="importData(this)">
+    </label>
+  </div>
 </div>
 
 <!-- ── RELATÓRIO ── -->
 <div class="sc" id="sc-rep">
   <h2>Relatório Mensal</h2>
   <div id="repcont"></div>
+</div>
+
+<!-- ── WELCOME / IMPORT ── -->
+<div class="sc" id="sc-welcome" style="display:none;max-width:560px;margin:0 auto;padding:48px 24px 28px;text-align:center">
+  <div style="font-size:56px;margin-bottom:20px">💰</div>
+  <h2 style="font-size:20px;margin-bottom:8px">Finanças Pessoais</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6">
+    Nenhum dado encontrado.<br>Importe um backup para restaurar seu histórico,<br>ou comece do zero.
+  </p>
+  <label style="display:block;width:100%;padding:14px;background:var(--accent);border-radius:10px;
+    color:#020617;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px">
+    📂 Importar backup (.json)
+    <input type="file" accept=".json" id="fimport" style="display:none" onchange="importData(this)">
+  </label>
+  <button onclick="startFresh()" style="width:100%;padding:14px;background:transparent;
+    border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:14px;cursor:pointer">
+    Começar do zero
+  </button>
 </div>
 
 <!-- ── BOTTOM NAV ── -->
@@ -244,103 +277,8 @@ const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).fo
 const uid=()=>Math.random().toString(36).slice(2,8);
 const REC=['carro','internet','casa','energia','agua','seguro','vivo','diarista','escola','faculdade'];
 
-// ─── defaults ──────────────────────────────────────────────────────────
-const DTPL={
-  income:[
-    {id:'adv1',name:N.adv1,period:'15',base:2724.26},
-    {id:'adv2',name:N.adv2,period:'15',base:4224.00},
-    {id:'sal1',name:N.sal1,period:'fim',base:1473.11},
-    {id:'sal2',name:N.sal2,period:'fim',base:3755.08}],
-  expenses:[
-    {id:'carro',name:N.carro,period:'15',base:1992.18,recurring:true},
-    {id:'santander',name:N.santander,period:'15',base:0,recurring:true},
-    {id:'mpago',name:N.mpago,period:'15',base:0,recurring:true},
-    {id:'caixa_c',name:N.caixa_c,period:'15',base:0,recurring:true},
-    {id:'seguro',name:N.seguro,period:'15',base:444.02,recurring:true},
-    {id:'vivo',name:N.vivo,period:'15',base:262.78,recurring:true},
-    {id:'internet',name:N.internet,period:'15',base:89.99,recurring:true},
-    {id:'agua',name:N.agua,period:'15',base:0,recurring:true},
-    {id:'casa',name:N.casa,period:'fim',base:574.02,recurring:true},
-    {id:'escola',name:N.escola,period:'fim',base:1031.94,recurring:true},
-    {id:'energia',name:N.energia,period:'fim',base:0,recurring:true},
-    {id:'diarista',name:N.diarista,period:'fim',base:830.00,recurring:true},
-    {id:'faculdade',name:N.faculdade,period:'fim',base:118.40,recurring:true},
-    {id:'unique',name:N.unique,period:'fim',base:0,recurring:true}]};
-
-// ─── historical data ────────────────────────────────────────────────────
-// [id, actual, done(1/0), period] for expenses
-// [id, actual, done] for income
-const H={
-  '2025-08':{
-    inc:[['adv1',2368.92,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['santander',1326.56,1,'15'],['mpago',1815.16,1,'15'],['caixa_c',1955.20,1,'15'],
-         ['carro',1992.18,1,'15'],['agua',84.21,1,'15'],['internet',89.99,1,'15'],
-         ['casa',574.02,1,'fim'],['diarista',750,1,'fim'],['energia',420.90,1,'fim'],
-         ['escola',1018,1,'fim'],['van',400,1,'fim']]},
-  '2025-09':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['diarista',830,1,'15'],['santander',2080.89,1,'15'],['caixa_c',1515,1,'15'],
-         ['mpago',2593.13,1,'15'],['carro',1992.18,1,'15'],['agua',138.39,1,'15'],['internet',89.99,1,'15'],
-         ['casa',574.02,1,'fim'],['escola',1018,1,'fim'],['van',400,1,'fim'],['energia',465.22,1,'fim']]},
-  '2025-10':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['diarista',830,1,'15'],['caixa_c',2429.72,1,'15'],['santander',1992.38,1,'15'],
-         ['mpago',3119.32,1,'15'],['carro',1992.18,1,'15'],['agua',125.25,1,'15'],['internet',89.99,1,'15'],
-         ['casa',574.02,1,'fim'],['escola',1018,1,'fim'],['van',400,1,'fim'],['energia',696.36,1,'fim']]},
-  '2025-11':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['diarista',830,1,'15'],['caixa_c',1773.50,1,'15'],['santander',1525.50,1,'15'],
-         ['mpago',3659.16,1,'15'],['carro',1992.18,1,'15'],['agua',65.17,1,'15'],['internet',89.99,1,'15'],
-         ['casa',574.02,1,'fim'],['escola',1018,1,'fim'],['van',400,1,'fim']]},
-  '2025-12':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['santander',1714.74,1,'15'],['mpago',1670.65,1,'15'],['caixa_c',1195.49,1,'15'],
-         ['carro',1992.18,1,'15'],['agua',101.84,1,'15'],['internet',89.99,1,'15'],
-         ['vivo',262.78,1,'15'],['seguro',440.41,1,'15'],
-         ['diarista',830,1,'fim'],['unique',3957.54,1,'fim'],['casa',574.02,1,'fim']]},
-  '2026-01':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['caixa_c',795,1,'15'],['santander',1534.61,1,'15'],['mpago',1755.17,1,'15'],
-         ['agua',86.37,1,'15'],['seguro',440.41,1,'15'],['vivo',262.78,1,'15'],
-         ['carro',1992.18,1,'15'],['internet',89.99,1,'15'],
-         ['casa',574.02,1,'fim'],['diarista',830,1,'fim'],['faculdade',118.40,1,'fim'],
-         ['unique',2508,1,'fim'],['escola',1031.94,1,'fim'],['energia',698.28,1,'fim']]},
-  '2026-02':{
-    inc:[['adv1',2724.26,1],['adv2',4224,1],['sal1',1473.11,1],['sal2',3755.08,1]],
-    exp:[['santander',2791.19,1,'15'],['caixa_c',795,1,'15'],['mpago',1297.58,1,'15'],
-         ['carro',1992.18,1,'15'],['agua',52.24,1,'15'],['internet',89.99,1,'15'],
-         ['seguro',440.41,1,'15'],['vivo',262.78,1,'15'],
-         ['escola',1031.94,1,'fim'],['diarista',830,1,'fim'],['casa',574.02,1,'fim'],
-         ['faculdade',118.40,1,'fim'],['unique',5239.67,1,'fim'],['energia',598.08,0,'fim']]},
-  '2026-03':{
-    inc:[['adv1',2724.26,0],['adv2',4224,0],['sal1',1473.11,0],['sal2',3755.08,0]],
-    exp:[['caixa_c',795,1,'15'],['seguro',444.02,1,'15'],['santander',2475.05,1,'15'],
-         ['mpago',737.66,0,'15'],['carro',1992.18,0,'15'],['internet',89.99,0,'15'],
-         ['vivo',262.78,0,'15'],['agua',0,0,'15'],
-         ['casa',574.02,0,'fim'],['escola',1031.94,0,'fim'],['energia',0,0,'fim'],
-         ['diarista',830,0,'fim'],['faculdade',118.40,0,'fim'],['unique',0,0,'fim']]}};
-
-function buildHist(key){
-  const h=H[key];if(!h)return null;
-  const income=h.inc.map(([id,actual,done])=>({
-    id,name:N[id]||id,
-    period:id.startsWith('adv')?'15':'fim',
-    actual,done:!!done}));
-  const expenses=h.exp.map(([id,actual,done,period])=>({
-    id,name:N[id]||id,period,actual,done:!!done,
-    recurring:REC.includes(id),isExtra:false}));
-  return{income,expenses};
-}
-
-function seedHist(){
-  Object.keys(H).forEach(k=>{
-    const sk=`fin:m:${k}`;
-    if(!localStorage.getItem(sk)){
-      const d=buildHist(k);
-      if(d)localStorage.setItem(sk,JSON.stringify(d));
-    }
-  });
-}
+// ─── defaults (sem valores — carregados via import) ─────────────────────
+const DTPL={income:[],expenses:[]};
 
 // ─── state ────────────────────────────────────────────────────────────
 const now=new Date();
@@ -374,8 +312,22 @@ function saveMD(db=true){
 }
 
 // ─── init ─────────────────────────────────────────────────────────────
+function hasAnyData(){
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&(k.startsWith('fin:m:')||k===TPL))return true;
+  }
+  return false;
+}
 function init(){
-  seedHist();loadTpl();loadMonth();renderTracker();renderTpl();setupPWA();
+  setupPWA();
+  if(!hasAnyData()){
+    document.getElementById('sc-tracker').classList.remove('on');
+    document.getElementById('sc-welcome').classList.add('on');
+    document.getElementById('ntrk').classList.remove('on');
+    return;
+  }
+  loadTpl();loadMonth();renderTracker();renderTpl();
 }
 
 // ─── navigation ───────────────────────────────────────────────────────
@@ -616,6 +568,53 @@ function renderRep(){
 
 const fR=v=>{const a=Math.abs(v);return a>=1000?`${(a/1000).toFixed(1)}k`:a.toFixed(0);};
 function navMes(y,m){Y=y;M=m;loadMonth();go('tracker');renderTracker();}
+
+// ─── export / import ──────────────────────────────────────────────────
+function exportData(){
+  const data={tpl:JSON.parse(localStorage.getItem(TPL)||'null'),months:{}};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('fin:m:'))data.months[k]=JSON.parse(localStorage.getItem(k)||'{}');
+  }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`financas-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+function importData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(data.tpl)localStorage.setItem(TPL,JSON.stringify(data.tpl));
+      if(data.months){
+        Object.entries(data.months).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
+      }
+      // suporte a formato legado (array de meses direto)
+      if(Array.isArray(data)){
+        data.forEach(item=>{if(item.key&&item.value)localStorage.setItem(item.key,JSON.stringify(item.value));});
+      }
+      loadTpl();loadMonth();renderTracker();renderTpl();
+      // esconde welcome, mostra tracker
+      document.getElementById('sc-welcome').classList.remove('on');
+      document.getElementById('sc-tracker').classList.add('on');
+      document.getElementById('ntrk').classList.add('on');
+      alert('Backup importado com sucesso!');
+    }catch(err){alert('Arquivo inválido. Verifique se é um backup gerado por este app.');}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+function startFresh(){
+  loadTpl();loadMonth();renderTracker();renderTpl();
+  document.getElementById('sc-welcome').classList.remove('on');
+  document.getElementById('sc-tracker').classList.add('on');
+  document.getElementById('ntrk').classList.add('on');
+}
 
 // ─── PWA ──────────────────────────────────────────────────────────────
 let dp=null;

@@ -141,14 +141,13 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
   color:var(--muted);border:1px solid var(--border);border-radius:10px;
   font-size:13px;cursor:pointer;touch-action:manipulation}
 .empty{color:var(--muted);font-size:12px;padding:8px 2px}
-#sc-welcome.on{display:block}
 </style>
 </head>
 <body>
 <div class="sdot" id="sdot"></div>
 
 <!-- ── TRACKER ── -->
-<div class="sc on" id="sc-tracker">
+<div class="sc" id="sc-tracker">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <h2 style="margin:0">Finanças</h2>
   </div>
@@ -209,21 +208,33 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
 </div>
 
 <!-- ── WELCOME / IMPORT ── -->
-<div class="sc" id="sc-welcome" style="display:none;max-width:560px;margin:0 auto;padding:48px 24px 28px;text-align:center">
-  <div style="font-size:56px;margin-bottom:20px">💰</div>
-  <h2 style="font-size:20px;margin-bottom:8px">Finanças Pessoais</h2>
-  <p style="font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6">
-    Nenhum dado encontrado.<br>Importe um backup para restaurar seu histórico,<br>ou comece do zero.
-  </p>
-  <label style="display:block;width:100%;padding:14px;background:var(--accent);border-radius:10px;
-    color:#020617;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:12px">
-    📂 Importar backup (.json)
-    <input type="file" accept=".json" id="fimport" style="display:none" onchange="importData(this)">
-  </label>
-  <button onclick="startFresh()" style="width:100%;padding:14px;background:transparent;
-    border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:14px;cursor:pointer">
-    Começar do zero
-  </button>
+<div class="sc" id="sc-welcome">
+  <div style="text-align:center;padding:32px 0 24px">
+    <div style="font-size:56px;margin-bottom:16px">💰</div>
+    <h2 style="font-size:22px;margin-bottom:8px">Finanças Pessoais</h2>
+    <p style="font-size:13px;color:var(--muted);line-height:1.6">
+      Controle suas receitas e despesas<br>de forma simples e privada.
+    </p>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Já tem um backup?</div>
+    <label style="display:block;width:100%;padding:13px;background:var(--accent);border-radius:9px;
+      color:#020617;font-weight:700;font-size:14px;cursor:pointer;text-align:center">
+      📂 Importar backup (.json)
+      <input type="file" accept=".json" id="fimport" style="display:none" onchange="importData(this)">
+    </label>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Primeira vez?</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">
+      Comece do zero e cadastre suas contas recorrentes na aba <b style="color:var(--text)">Contas</b>.
+    </p>
+    <button onclick="startFresh()" style="width:100%;padding:13px;background:transparent;
+      border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;
+      font-weight:600;cursor:pointer;touch-action:manipulation">
+      Começar do zero →
+    </button>
+  </div>
 </div>
 
 <!-- ── BOTTOM NAV ── -->
@@ -319,24 +330,23 @@ function hasAnyData(){
   }
   return false;
 }
+function showScreen(id){
+  document.querySelectorAll('.sc').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(e=>e.classList.remove('on'));
+  document.getElementById('sc-'+id).classList.add('on');
+  const nb=document.getElementById('n'+id);
+  if(nb)nb.classList.add('on');
+}
 function init(){
   setupPWA();
-  if(!hasAnyData()){
-    document.getElementById('sc-tracker').classList.remove('on');
-    document.getElementById('sc-welcome').classList.add('on');
-    document.getElementById('ntrk').classList.remove('on');
-    return;
-  }
+  if(!hasAnyData()){showScreen('welcome');return;}
   loadTpl();loadMonth();renderTracker();renderTpl();
+  showScreen('tracker');
 }
 
 // ─── navigation ───────────────────────────────────────────────────────
 function go(s){
-  scr=s;
-  document.querySelectorAll('.sc').forEach(e=>e.classList.remove('on'));
-  document.querySelectorAll('.nb').forEach(e=>e.classList.remove('on'));
-  document.getElementById('sc-'+s).classList.add('on');
-  document.getElementById('n'+s).classList.add('on');
+  scr=s;showScreen(s);
   if(s==='rep')renderRep();
   if(s==='tpl')renderTpl();
 }
@@ -598,10 +608,7 @@ function importData(input){
         data.forEach(item=>{if(item.key&&item.value)localStorage.setItem(item.key,JSON.stringify(item.value));});
       }
       loadTpl();loadMonth();renderTracker();renderTpl();
-      // esconde welcome, mostra tracker
-      document.getElementById('sc-welcome').classList.remove('on');
-      document.getElementById('sc-tracker').classList.add('on');
-      document.getElementById('ntrk').classList.add('on');
+      showScreen('tracker');
       alert('Backup importado com sucesso!');
     }catch(err){alert('Arquivo inválido. Verifique se é um backup gerado por este app.');}
   };
@@ -611,9 +618,7 @@ function importData(input){
 
 function startFresh(){
   loadTpl();loadMonth();renderTracker();renderTpl();
-  document.getElementById('sc-welcome').classList.remove('on');
-  document.getElementById('sc-tracker').classList.add('on');
-  document.getElementById('ntrk').classList.add('on');
+  showScreen('tracker');
 }
 
 // ─── PWA ──────────────────────────────────────────────────────────────

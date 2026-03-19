@@ -284,8 +284,9 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 
 const mKey=(y,m)=>`fin:m:${y}-${(''+m).padStart(2,'0')}`;
 const TPL='fin:tpl';
-const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
-const uid=()=>Math.random().toString(36).slice(2,8);
+const fmt=v=>{const n=Number(v);return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(isFinite(n)?n:0);};
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const REC=['carro','internet','casa','energia','agua','seguro','vivo','diarista','escola','faculdade'];
 
 // ─── defaults (sem valores — carregados via import) ─────────────────────
@@ -298,27 +299,42 @@ let md=null,tpl=null,saveT=null,mmode=null,editId=null,ftyp='rec';
 
 // ─── storage ──────────────────────────────────────────────────────────
 function loadTpl(){
-  const r=localStorage.getItem(TPL);
-  tpl=r?JSON.parse(r):JSON.parse(JSON.stringify(DTPL));
+  try{
+    const r=localStorage.getItem(TPL);
+    tpl=r?JSON.parse(r):JSON.parse(JSON.stringify(DTPL));
+    if(!Array.isArray(tpl?.income))tpl.income=[];
+    if(!Array.isArray(tpl?.expenses))tpl.expenses=[];
+  }catch(e){console.warn('fin:tpl corrompido, resetando',e);tpl=JSON.parse(JSON.stringify(DTPL));}
 }
-function saveTpl(){localStorage.setItem(TPL,JSON.stringify(tpl));}
+function saveTpl(){
+  try{localStorage.setItem(TPL,JSON.stringify(tpl));}
+  catch(e){if(e.name==='QuotaExceededError')alert('Armazenamento cheio! Exporte um backup e libere espaço.');}
+}
 
 function loadMonth(){
-  const r=localStorage.getItem(mKey(Y,M));
-  if(r){md=JSON.parse(r);}
-  else{
-    md={
-      income:tpl.income.map(t=>({...t,actual:t.base,done:false})),
-      expenses:tpl.expenses.filter(t=>t.recurring!==false).map(t=>({...t,actual:t.base,done:false,isExtra:false}))
-    };
-    saveMD(false);
-  }
+  try{
+    const r=localStorage.getItem(mKey(Y,M));
+    if(r){
+      md=JSON.parse(r);
+      if(!Array.isArray(md?.income))md.income=[];
+      if(!Array.isArray(md?.expenses))md.expenses=[];
+    }else{
+      md={
+        income:tpl.income.map(t=>({...t,actual:t.base,done:false})),
+        expenses:tpl.expenses.filter(t=>t.recurring!==false).map(t=>({...t,actual:t.base,done:false,isExtra:false}))
+      };
+      saveMD(false);
+    }
+  }catch(e){console.warn('Mês corrompido, criando novo',e);md={income:[],expenses:[]};saveMD(false);}
 }
 function saveMD(db=true){
   const d=document.getElementById('sdot');
   d.className='sdot sv';
   clearTimeout(saveT);
-  const fn=()=>{localStorage.setItem(mKey(Y,M),JSON.stringify(md));d.className='sdot';};
+  const fn=()=>{
+    try{localStorage.setItem(mKey(Y,M),JSON.stringify(md));d.className='sdot';}
+    catch(e){d.className='sdot';if(e.name==='QuotaExceededError')alert('Armazenamento cheio! Exporte um backup e libere espaço.');}
+  };
   if(db)saveT=setTimeout(fn,500);else fn();
 }
 
@@ -387,16 +403,16 @@ function renderBody(){
   document.getElementById('ir').innerHTML=inc.length?inc.map(x=>`
     <div class="row ${x.done?'done':''}">
       <button class="ck ${x.done?'on':''}" onclick="togI('${x.id}')">${x.done?'<span>✓</span>':''}</button>
-      <span class="rn">${x.name}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
-      <input class="rv inc" type="number" step="0.01" value="${x.actual}" oninput="upI('${x.id}',this.value)">
+      <span class="rn">${esc(x.name)}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
+      <input class="rv inc" type="number" step="0.01" value="${+x.actual||0}" oninput="upI('${x.id}',this.value)">
       ${x.isExtra?`<button class="rdel" onclick="delInc('${x.id}')">×</button>`:''}
     </div>`).join(''):'<div class="empty">Nenhuma receita neste período</div>';
 
   document.getElementById('er').innerHTML=exp.length?exp.map(x=>`
     <div class="row ${x.done?'done':''}">
       <button class="ck ${x.done?'on':''}" onclick="togE('${x.id}')">${x.done?'<span>✓</span>':''}</button>
-      <span class="rn">${x.name}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
-      <input class="rv" type="number" step="0.01" value="${x.actual}" oninput="upE('${x.id}',this.value)">
+      <span class="rn">${esc(x.name)}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
+      <input class="rv" type="number" step="0.01" value="${+x.actual||0}" oninput="upE('${x.id}',this.value)">
       ${x.isExtra?`<button class="rdel" onclick="delEx('${x.id}')">×</button>`:''}
     </div>`).join(''):'<div class="empty">Nenhuma despesa neste período</div>';
 }
@@ -422,8 +438,8 @@ function updSum(){
 
 function togI(id){const x=md.income.find(i=>i.id===id);if(x){x.done=!x.done;saveMD();renderTracker();}}
 function togE(id){const x=md.expenses.find(e=>e.id===id);if(x){x.done=!x.done;saveMD();renderTracker();}}
-function upI(id,v){const x=md.income.find(i=>i.id===id);if(x){x.actual=v;saveMD();updSum();}}
-function upE(id,v){const x=md.expenses.find(e=>e.id===id);if(x){x.actual=v;saveMD();updSum();}}
+function upI(id,v){const x=md.income.find(i=>i.id===id);if(x){const n=parseFloat(v);x.actual=isFinite(n)&&n>=0?n:(x.actual||0);saveMD();updSum();}}
+function upE(id,v){const x=md.expenses.find(e=>e.id===id);if(x){const n=parseFloat(v);x.actual=isFinite(n)&&n>=0?n:(x.actual||0);saveMD();updSum();}}
 function delEx(id){md.expenses=md.expenses.filter(e=>e.id!==id);saveMD();renderTracker();}
 function delInc(id){md.income=md.income.filter(i=>i.id!==id);saveMD();renderTracker();}
 
@@ -457,10 +473,11 @@ function sft(t){
 }
 function sv(){
   const name=document.getElementById('fn').value.trim();
-  const value=parseFloat(document.getElementById('fv').value)||0;
+  const value=parseFloat(document.getElementById('fv').value);
   const period=document.getElementById('fp').value;
   const rec=ftyp==='rec';
   if(!name)return;
+  if(!isFinite(value)||value<0){alert('Informe um valor válido.');return;}
   if(mmode==='exp'){
     md.expenses.push({id:uid(),name,period,actual:value,done:false,isExtra:!rec,recurring:rec});
     if(rec){tpl.expenses.push({id:uid(),name,period,base:value,recurring:true});saveTpl();}
@@ -490,14 +507,14 @@ function delTplInc(id){
 function renderTpl(){
   document.getElementById('tinc').innerHTML=tpl.income.length?tpl.income.map(t=>`
     <div class="trow">
-      <div class="ti"><div class="tn">${t.name}</div>
+      <div class="ti"><div class="tn">${esc(t.name)}</div>
       <div class="tm">${fmt(t.base)} · ${t.period==='15'?'Dia 15':'Fim do Mês'}</div></div>
       <button class="rdel" onclick="delTplInc('${t.id}')">×</button>
     </div>`).join(''):'<div class="empty">Nenhuma</div>';
 
   const rRow=t=>`
     <div class="trow">
-      <div class="ti"><div class="tn">${t.name}</div>
+      <div class="ti"><div class="tn">${esc(t.name)}</div>
       <div class="tm">${fmt(t.base)} · ${t.period==='15'?'Dia 15':'Fim do Mês'}</div></div>
       <button class="rtog ${t.recurring?'on':''}" onclick="togRec('${t.id}')">
         ${t.recurring?'🔁 Recorrente':'1× Pontual'}
@@ -532,14 +549,17 @@ function renderRep(){
     document.getElementById('repcont').innerHTML='<p class="empty">Nenhum dado.</p>';return;
   }
   const rows=keys.map(k=>{
-    const d=JSON.parse(localStorage.getItem(k)||'{}');
-    const [y,m]=k.replace('fin:m:','').split('-').map(Number);
-    const inc=(d.income||[]).reduce((s,i)=>s+(+i.actual||0),0);
-    const e15=(d.expenses||[]).filter(e=>e.period==='15').reduce((s,e)=>s+(+e.actual||0),0);
-    const efm=(d.expenses||[]).filter(e=>e.period==='fim').reduce((s,e)=>s+(+e.actual||0),0);
-    const et=e15+efm;const sl=inc-et;
-    return{y,m,inc,e15,efm,et,sl};
-  });
+    try{
+      const d=JSON.parse(localStorage.getItem(k)||'{}');
+      const [y,m]=k.replace('fin:m:','').split('-').map(Number);
+      if(!Number.isFinite(y)||!Number.isFinite(m)||m<1||m>12)return null;
+      const inc=(d.income||[]).reduce((s,i)=>s+(+i.actual||0),0);
+      const e15=(d.expenses||[]).filter(e=>e.period==='15').reduce((s,e)=>s+(+e.actual||0),0);
+      const efm=(d.expenses||[]).filter(e=>e.period==='fim').reduce((s,e)=>s+(+e.actual||0),0);
+      const et=e15+efm;const sl=inc-et;
+      return{y,m,inc,e15,efm,et,sl};
+    }catch(e){console.warn(`Mês ${k} corrompido, ignorando`,e);return null;}
+  }).filter(Boolean);
 
   const maxExp=Math.max(...rows.map(r=>r.et),1);
 
@@ -593,20 +613,30 @@ function exportData(){
   a.click();URL.revokeObjectURL(a.href);
 }
 
+function validateImport(data){
+  if(!data||typeof data!=='object'||Array.isArray(data))return false;
+  if(data.tpl!==undefined&&data.tpl!==null){
+    if(!Array.isArray(data.tpl?.income)||!Array.isArray(data.tpl?.expenses))return false;
+  }
+  if(data.months!==undefined){
+    if(typeof data.months!=='object'||Array.isArray(data.months))return false;
+    for(const[k,v]of Object.entries(data.months)){
+      if(!/^fin:m:\d{4}-\d{2}$/.test(k))return false;
+      if(!Array.isArray(v?.income)||!Array.isArray(v?.expenses))return false;
+    }
+  }
+  return true;
+}
 function importData(input){
   const file=input.files[0];if(!file)return;
+  if(file.size>5*1024*1024){alert('Arquivo muito grande (máx 5MB).');input.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
     try{
       const data=JSON.parse(e.target.result);
+      if(!validateImport(data)){alert('Arquivo inválido. Verifique se é um backup gerado por este app.');return;}
       if(data.tpl)localStorage.setItem(TPL,JSON.stringify(data.tpl));
-      if(data.months){
-        Object.entries(data.months).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
-      }
-      // suporte a formato legado (array de meses direto)
-      if(Array.isArray(data)){
-        data.forEach(item=>{if(item.key&&item.value)localStorage.setItem(item.key,JSON.stringify(item.value));});
-      }
+      if(data.months)Object.entries(data.months).forEach(([k,v])=>localStorage.setItem(k,JSON.stringify(v)));
       loadTpl();loadMonth();renderTracker();renderTpl();
       showScreen('tracker');
       alert('Backup importado com sucesso!');
@@ -632,7 +662,7 @@ function setupPWA(){
   const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(bl);
   document.head.appendChild(ml);
   if('serviceWorker' in navigator){
-    const sw=`const C='fn-v2';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add(self.location.href||'/')).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
+    const sw=`const C='fn-v4';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.add(self.location.href||'/')).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));self.addEventListener('fetch',e=>{if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));}else{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));}});`;
     navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
   }
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('ibtn').style.display='block';});

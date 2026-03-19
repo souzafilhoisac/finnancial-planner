@@ -1,0 +1,10 @@
+# Ferramentas locais
+.opencode/
+install.sh
+
+# Artefato do Windows (download via browser)
+*.Zone.Identifier
+
+# Misc
+.DS_Store
+Thumbs.db

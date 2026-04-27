@@ -76,6 +76,10 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
   cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
   touch-action:manipulation;border-radius:6px;padding:0}
 .rdel:active{color:var(--red)}
+.redit{width:24px;height:24px;flex-shrink:0;background:none;border:none;color:var(--dim);
+  cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;
+  touch-action:manipulation;border-radius:6px;padding:0}
+.redit:active{color:var(--accent)}
 /* ── add btn ── */
 .abtn{width:100%;margin-top:8px;padding:10px;background:transparent;
   border:1px dashed var(--dim);color:var(--muted);border-radius:9px;
@@ -523,6 +527,7 @@ function renderTpl(){
       <button class="rtog ${t.recurring!==false?'on':''}" onclick="togRecInc('${t.id}')">
         ${t.recurring!==false?'🔁 Recorrente':'1× Pontual'}
       </button>
+      <button class="redit" onclick="om('tplinc',{eid:'${t.id}',name:'${esc(t.name)}',value:${t.base},period:'${t.period}',rec:${t.recurring!==false}})">✏️</button>
       <button class="rdel" onclick="delTplInc('${t.id}')">×</button>
     </div>`;
   document.getElementById('tinc').innerHTML=tpl.income.length?tpl.income.map(rRowInc).join(''):'<div class="empty">Nenhuma</div>';

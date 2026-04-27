@@ -180,6 +180,7 @@ h2{font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px}
   </p>
   <div class="sl">Receitas</div>
   <div id="tinc"></div>
+  <button class="abtn" id="batplinc" style="margin-top:8px">+ Nova receita recorrente</button>
   <div class="sl">Dia 15</div>
   <div id="t15e"></div>
   <div class="sl">Fim do Mês</div>
@@ -320,7 +321,7 @@ function loadMonth(){
       if(!Array.isArray(md?.expenses))md.expenses=[];
     }else{
       md={
-        income:tpl.income.map(t=>({...t,actual:t.base,done:false})),
+        income:tpl.income.filter(t=>t.recurring!==false).map(t=>({...t,actual:t.base,done:false,isExtra:false})),
         expenses:tpl.expenses.filter(t=>t.recurring!==false).map(t=>({...t,actual:t.base,done:false,isExtra:false}))
       };
       saveMD(false);
@@ -457,7 +458,8 @@ function om(mode,opts={}){
   document.getElementById('fv').value=opts.value||'';
   document.getElementById('fp').value=opts.period||'15';
   const titles={exp:'Nova despesa pontual',inc:'Nova receita pontual',
-    tpl:editId?'Editar conta':'Nova conta recorrente'};
+    tpl:editId?'Editar conta':'Nova conta recorrente',
+    tplinc:editId?'Editar receita':'Nova receita recorrente'};
   document.getElementById('mtit').textContent=titles[mode]||'';
   // toggle sempre visível
   document.getElementById('ftr').style.display='block';
@@ -494,9 +496,18 @@ function sv(){
       tpl.expenses.push({id:uid(),name,period,base:value,recurring:rec});
     }
     saveTpl();renderTpl();cm();
+  }else if(mmode==='tplinc'){
+    if(editId){
+      const t=tpl.income.find(i=>i.id===editId);
+      if(t){t.name=name;t.base=value;t.period=period;t.recurring=rec;}
+    }else{
+      tpl.income.push({id:uid(),name,period,base:value,recurring:rec});
+    }
+    saveTpl();renderTpl();cm();
   }
 }
 document.getElementById('batpl').onclick=()=>om('tpl');
+document.getElementById('batplinc').onclick=()=>om('tplinc');
 
 // ─── templates ────────────────────────────────────────────────────────
 function delTplInc(id){
@@ -505,12 +516,16 @@ function delTplInc(id){
   saveTpl();renderTpl();
 }
 function renderTpl(){
-  document.getElementById('tinc').innerHTML=tpl.income.length?tpl.income.map(t=>`
+  const rRowInc=t=>`
     <div class="trow">
       <div class="ti"><div class="tn">${esc(t.name)}</div>
       <div class="tm">${fmt(t.base)} · ${t.period==='15'?'Dia 15':'Fim do Mês'}</div></div>
+      <button class="rtog ${t.recurring!==false?'on':''}" onclick="togRecInc('${t.id}')">
+        ${t.recurring!==false?'🔁 Recorrente':'1× Pontual'}
+      </button>
       <button class="rdel" onclick="delTplInc('${t.id}')">×</button>
-    </div>`).join(''):'<div class="empty">Nenhuma</div>';
+    </div>`;
+  document.getElementById('tinc').innerHTML=tpl.income.length?tpl.income.map(rRowInc).join(''):'<div class="empty">Nenhuma</div>';
 
   const rRow=t=>`
     <div class="trow">
@@ -529,6 +544,10 @@ function renderTpl(){
 }
 function togRec(id){
   const t=tpl.expenses.find(e=>e.id===id);
+  if(t){t.recurring=!t.recurring;saveTpl();renderTpl();}
+}
+function togRecInc(id){
+  const t=tpl.income.find(i=>i.id===id);
   if(t){t.recurring=!t.recurring;saveTpl();renderTpl();}
 }
 function delTpl(id){

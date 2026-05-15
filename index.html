@@ -410,6 +410,7 @@ function renderBody(){
       <button class="ck ${x.done?'on':''}" onclick="togI('${x.id}')">${x.done?'<span>✓</span>':''}</button>
       <span class="rn">${esc(x.name)}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
       <input class="rv inc" type="number" step="0.01" value="${+x.actual||0}" oninput="upI('${x.id}',this.value)">
+      <button class="redit" onclick="editIncItem('${x.id}')">✏️</button>
       ${x.isExtra?`<button class="rdel" onclick="delInc('${x.id}')">×</button>`:''}
     </div>`).join(''):'<div class="empty">Nenhuma receita neste período</div>';
 
@@ -418,6 +419,7 @@ function renderBody(){
       <button class="ck ${x.done?'on':''}" onclick="togE('${x.id}')">${x.done?'<span>✓</span>':''}</button>
       <span class="rn">${esc(x.name)}${x.isExtra?' <span style="font-size:10px;color:var(--yellow)">1×</span>':''}</span>
       <input class="rv" type="number" step="0.01" value="${+x.actual||0}" oninput="upE('${x.id}',this.value)">
+      <button class="redit" onclick="editExpItem('${x.id}')">✏️</button>
       ${x.isExtra?`<button class="rdel" onclick="delEx('${x.id}')">×</button>`:''}
     </div>`).join(''):'<div class="empty">Nenhuma despesa neste período</div>';
 }
@@ -447,6 +449,8 @@ function upI(id,v){const x=md.income.find(i=>i.id===id);if(x){const n=parseFloat
 function upE(id,v){const x=md.expenses.find(e=>e.id===id);if(x){const n=parseFloat(v);x.actual=isFinite(n)&&n>=0?n:(x.actual||0);saveMD();updSum();}}
 function delEx(id){md.expenses=md.expenses.filter(e=>e.id!==id);saveMD();renderTracker();}
 function delInc(id){md.income=md.income.filter(i=>i.id!==id);saveMD();renderTracker();}
+function editIncItem(id){const x=md.income.find(i=>i.id===id);if(x)om('editInc',{eid:id,name:x.name,value:x.actual,period:x.period});}
+function editExpItem(id){const x=md.expenses.find(e=>e.id===id);if(x)om('editExp',{eid:id,name:x.name,value:x.actual,period:x.period});}
 
 document.getElementById('bp').onclick=()=>{if(M===1){Y--;M=12;}else M--;loadMonth();renderTracker();};
 document.getElementById('bn').onclick=()=>{if(M===12){Y++;M=1;}else M++;loadMonth();renderTracker();};
@@ -463,10 +467,10 @@ function om(mode,opts={}){
   document.getElementById('fp').value=opts.period||'15';
   const titles={exp:'Nova despesa pontual',inc:'Nova receita pontual',
     tpl:editId?'Editar conta':'Nova conta recorrente',
-    tplinc:editId?'Editar receita':'Nova receita recorrente'};
+    tplinc:editId?'Editar receita':'Nova receita recorrente',
+    editInc:'Editar receita',editExp:'Editar lançamento'};
   document.getElementById('mtit').textContent=titles[mode]||'';
-  // toggle sempre visível
-  document.getElementById('ftr').style.display='block';
+  document.getElementById('ftr').style.display=(mode==='editInc'||mode==='editExp')?'none':'block';
   sft(ftyp);
   document.getElementById('ov').classList.add('on');
   setTimeout(()=>document.getElementById('fn').focus(),100);
@@ -508,6 +512,14 @@ function sv(){
       tpl.income.push({id:uid(),name,period,base:value,recurring:rec});
     }
     saveTpl();renderTpl();cm();
+  }else if(mmode==='editInc'){
+    const x=md.income.find(i=>i.id===editId);
+    if(x){x.name=name;x.actual=value;x.period=period;}
+    saveMD();renderTracker();cm();
+  }else if(mmode==='editExp'){
+    const x=md.expenses.find(e=>e.id===editId);
+    if(x){x.name=name;x.actual=value;x.period=period;}
+    saveMD();renderTracker();cm();
   }
 }
 document.getElementById('batpl').onclick=()=>om('tpl');
@@ -539,6 +551,7 @@ function renderTpl(){
       <button class="rtog ${t.recurring?'on':''}" onclick="togRec('${t.id}')">
         ${t.recurring?'🔁 Recorrente':'1× Pontual'}
       </button>
+      <button class="redit" onclick="om('tpl',{eid:'${t.id}',name:'${esc(t.name)}',value:${t.base},period:'${t.period}',rec:${t.recurring!==false}})">✏️</button>
       <button class="rdel" onclick="delTpl('${t.id}')">×</button>
     </div>`;
 
